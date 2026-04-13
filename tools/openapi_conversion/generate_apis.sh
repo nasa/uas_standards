@@ -8,85 +8,55 @@ else
 	BASEDIR=$(readlink -e "$(dirname "$0")")
 fi
 
-cd "${BASEDIR}" || exit
+cd "${BASEDIR}/../.." || exit
 
-docker image build --build-context root=../../ -t openapi-python-converter .
+USER_GROUP="$(id -u):$(id -g)"
 
-echo "F3411-19"
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/astm/f3411/v19/remoteid/augmented.yaml \
-	      --python_output /resources/src/uas_standards/astm/f3411/v19/api.py
+docker image build --build-context root=. -t openapi-python-converter ./tools/openapi_conversion
 
-echo "F3411-22a"
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/astm/f3411/v22a/remoteid/updated.yaml \
-	      --python_output /resources/src/uas_standards/astm/f3411/v22a/api.py
+DOCKER_CMD="docker container run --rm \
+  -u ${USER_GROUP} \
+  -v $(pwd):/resources \
+  openapi-python-converter"
 
-echo "F3548-21"
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/astm/f3548/v21/utm.yaml \
-	      --python_output /resources/src/uas_standards/astm/f3548/v21/api.py
+# Usage: generate "Label" "Interface YAML" "Output Python Path"
+generate_api() {
+    local label=$1
+    local api_path=$2
+    local output_path=$3
+    local output_dir=$(dirname "$output_path")
 
-echo "Geo-awareness automated testing"
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/interuss/automated_testing/geo-awareness/v1/geo-awareness.yaml \
-	      --python_output /resources/src/uas_standards/interuss/automated_testing/geo_awareness/v1/api.py
+    echo "Building: $label"
 
-echo "RID injection automated testing"
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/interuss/automated_testing/rid/v1/injection.yaml \
-	      --python_output /resources/src/uas_standards/interuss/automated_testing/rid/v1/injection.py
+    # Create directory if it doesn't exist
+    mkdir -p "./$output_dir"
 
-echo "RID observation automated testing"
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/interuss/automated_testing/rid/v1/observation.yaml \
-	      --python_output /resources/src/uas_standards/interuss/automated_testing/rid/v1/observation.py
+    # Execute converter
+    $DOCKER_CMD \
+        --api "/resources/$api_path" \
+        --python_output "/resources/$output_path"
+}
 
-echo "SCD automated testing"
-mkdir -p $(pwd)/../../src/uas_standards/interuss/automated_testing/scd/v1
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/interuss/automated_testing/scd/v1/scd.yaml \
-	      --python_output /resources/src/uas_standards/interuss/automated_testing/scd/v1/api.py
+# --- ASTM Standards ---
+generate_api "F3411-19" "interfaces/astm/f3411/v19/remoteid/augmented.yaml" "src/uas_standards/astm/f3411/v19/api.py"
+generate_api "F3411-22a" "interfaces/astm/f3411/v22a/remoteid/updated.yaml" "src/uas_standards/astm/f3411/v22a/api.py"
+generate_api "F3548-21" "interfaces/astm/f3548/v21/utm.yaml" "src/uas_standards/astm/f3548/v21/api.py"
 
-echo "Geospatial map automated testing"
-mkdir -p $(pwd)/../../src/uas_standards/interuss/automated_testing/geospatial_map/v1
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/interuss/automated_testing/geospatial_map/v1/geospatial_map.yaml \
-	      --python_output /resources/src/uas_standards/interuss/automated_testing/geospatial_map/v1/api.py
+# --- InterUSS Automated Testing ---
+TEST_BASE="interfaces/interuss/automated_testing"
+SRC_BASE="src/uas_standards/interuss/automated_testing"
 
-echo "Flight planning automated testing"
-mkdir -p $(pwd)/../../src/uas_standards/interuss/automated_testing/flight_planning/v1
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/interuss/automated_testing/flight_planning/v1/flight_planning.yaml \
-	      --python_output /resources/src/uas_standards/interuss/automated_testing/flight_planning/v1/api.py
+generate_api "Geo-awareness" "$TEST_BASE/geo-awareness/v1/geo-awareness.yaml" "$SRC_BASE/geo_awareness/v1/api.py"
+generate_api "RID injection" "$TEST_BASE/rid/v1/injection.yaml" "$SRC_BASE/rid/v1/injection.py"
+generate_api "RID observation" "$TEST_BASE/rid/v1/observation.yaml" "$SRC_BASE/rid/v1/observation.py"
+generate_api "SCD" "$TEST_BASE/scd/v1/scd.yaml" "$SRC_BASE/scd/v1/api.py"
+generate_api "Geospatial map" "$TEST_BASE/geospatial_map/v1/geospatial_map.yaml" "$SRC_BASE/geospatial_map/v1/api.py"
+generate_api "Flight planning" "$TEST_BASE/flight_planning/v1/flight_planning.yaml" "$SRC_BASE/flight_planning/v1/api.py"
+generate_api "Versioning" "$TEST_BASE/versioning/versioning.yaml" "$SRC_BASE/versioning/api.py"
 
-echo "Versioning for automated testing"
-mkdir -p $(pwd)/../../src/uas_standards/interuss/automated_testing/versioning
-docker container run -it \
-  	-v "$(pwd)/../..:/resources" \
-	  openapi-python-converter \
-	      --api /resources/interfaces/interuss/automated_testing/versioning/versioning.yaml \
-	      --python_output /resources/src/uas_standards/interuss/automated_testing/versioning/api.py
+# --- DSS ---
+generate_api "DSS aux interface" "interfaces/interuss/dss/aux/aux_.yaml" "src/uas_standards/interuss/dss/aux/api.py"
 
 echo "Running formatter"
-cd ../../
 uv run ruff check --fix
 uv run ruff format
